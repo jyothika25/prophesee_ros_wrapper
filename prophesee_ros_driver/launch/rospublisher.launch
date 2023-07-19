@@ -1,6 +1,6 @@
 <launch>
 
-  <node pkg="prophesee_ros_driver" type="prophesee_ros_publisher" name="prophesee_ros_publisher" respawn="false" output="screen">
+  <node pkg="prophesee_ros_driver" type="rospublisher" name="rospublisher" respawn="false" output="screen">
     <param name="camera_name" value="camera" />
     <param name="publish_cd" value="true" />
 
@@ -14,6 +14,7 @@
 	 be aggregated until a ROS message is generated. Defaults to
 	 100 usec -->
     <param name="event_delta_t" value="0.000100" />
+    
   </node>
 
 </launch>

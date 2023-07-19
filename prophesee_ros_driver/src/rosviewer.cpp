@@ -1,11 +1,5 @@
-/*******************************************************************
- * File : prophesee_ros_viewer.cpp                                 *
- *                                                                 *
- * Copyright: (c) 2015-2019 Prophesee                              *
- *******************************************************************/
-
-#include "prophesee_ros_viewer.h"
-
+#include "rosviewer.h"
+#include <metavision/sdk/core/algorithms/periodic_frame_generation_algorithm.h> 
 #include <opencv2/highgui/highgui.hpp>
 #if CV_MAJOR_VERSION >= 4
 #include <opencv2/highgui/highgui_c.h>
@@ -27,7 +21,7 @@ PropheseeWrapperViewer::PropheseeWrapperViewer() :
 
     const std::string topic_cam_info         = "/prophesee/" + camera_name + "/camera_info";
     const std::string topic_cd_event_buffer  = "/prophesee/" + camera_name + "/cd_events_buffer";
-
+    
     // Subscribe to camera info topic
     sub_cam_info_ = nh_.subscribe(topic_cam_info, 1, &PropheseeWrapperViewer::cameraInfoCallback, this);
 
@@ -36,6 +30,11 @@ PropheseeWrapperViewer::PropheseeWrapperViewer() :
         callback displayerCDCallback = boost::bind(&CDFrameGenerator::add_events, &cd_frame_generator_, _1);
         sub_cd_events_               = nh_.subscribe(topic_cd_event_buffer, 500, displayerCDCallback);
     }
+    
+    // Subscribe to frames
+    
+    sub_frames = nh_.subscribe("/topic_frames", 10, &PropheseeWrapperViewer::imageCallback, this);
+     
 }
 
 PropheseeWrapperViewer::~PropheseeWrapperViewer() {
@@ -64,6 +63,22 @@ void PropheseeWrapperViewer::cameraInfoCallback(const sensor_msgs::CameraInfo::C
         init(msg->width, msg->height);
 }
 
+void PropheseeWrapperViewer::imageCallback(const sensor_msgs::ImageConstPtr& msg) {
+    try {
+        // Convert the ROS image message to an OpenCV image
+        cv::Mat frame = cv_bridge::toCvShare(msg, "bgr8")->image;
+
+        
+        cv::imshow("Viewer Frames", frame);
+        cv::waitKey(33);
+        
+       
+    } catch (cv_bridge::Exception& e) {
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+    }
+}
+
+
 bool PropheseeWrapperViewer::init(const unsigned int &sensor_width, const unsigned int &sensor_height) {
     if (show_cd_) {
         // Define the display window for CD events
@@ -89,7 +104,7 @@ void PropheseeWrapperViewer::create_window(const std::string &window_name, const
 }
 
 void PropheseeWrapperViewer::showData() {
-    if (!show_cd_)
+   if (!show_cd_)
         return;
 
     if (cd_frame_generator_.get_last_ros_timestamp() < ros::Time::now() - ros::Duration(0.5)) {
@@ -99,11 +114,11 @@ void PropheseeWrapperViewer::showData() {
 
     const auto &cd_frame = cd_frame_generator_.get_current_frame();
     if (!cd_frame.empty()) {
-        cv::imshow(cd_window_name_, cd_frame);
+       // cv::imshow(cd_window_name_, cd_frame);
     }
 }
 
-int process_ui_for(const int &delay_ms) {
+int PropheseeWrapperViewer::process_ui_for(const int &delay_ms) {
     auto then = std::chrono::high_resolution_clock::now();
     int key   = cv::waitKey(delay_ms);
     auto now  = std::chrono::high_resolution_clock::now();
@@ -115,7 +130,7 @@ int process_ui_for(const int &delay_ms) {
 }
 
 int main(int argc, char **argv) {
-    ros::init(argc, argv, "prophesee_ros_viewer");
+    ros::init(argc, argv, "rosviewer");
 
     PropheseeWrapperViewer wv;
 
@@ -125,10 +140,9 @@ int main(int argc, char **argv) {
 
     while (ros::ok()) {
         ros::spinOnce();
-
-        wv.showData();
-
-        process_ui_for(33);
+        
+        //wv.showData(); //uncomment for viewing CD events
+        //process_ui_for(33); //uncomment for viewing CD events
     }
 
     ros::shutdown();

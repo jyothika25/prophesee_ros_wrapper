@@ -43,37 +43,40 @@ include_directories(
   ${OPENCV_INCLUDE_DIRS}
 )
 
-# Prophesee Publisher
-add_executable(prophesee_ros_publisher
-    src/prophesee_ros_publisher.cpp
-)
 
+#rospublisher
+add_executable(rospublisher 
+      src/rospublisher.cpp
+      src/cd_frame_generator.cpp)
 target_link_libraries(
-    prophesee_ros_publisher
+    rospublisher
     MetavisionSDK::driver
     ${catkin_LIBRARIES}
 )
 
 add_dependencies(
-    prophesee_ros_publisher
+    rospublisher
     prophesee_event_msgs_generate_messages_cpp
     ${catkin_EXPORTED_TARGETS}
 )
 
-# Prophesee Viewer
-add_executable(prophesee_ros_viewer
-    src/prophesee_ros_viewer.cpp
+
+#rosviewer
+add_executable(rosviewer
+    src/rosviewer.cpp
     src/cd_frame_generator.cpp
+    
 )
 
 target_link_libraries(
-    prophesee_ros_viewer
+    rosviewer
     MetavisionSDK::driver
     ${catkin_LIBRARIES}
 )
 
 add_dependencies(
-    prophesee_ros_viewer
+    rosviewer
     prophesee_event_msgs_generate_messages_cpp
     ${catkin_EXPORTED_TARGETS}
 )
+

@@ -1,15 +1,10 @@
-/*******************************************************************
- * File : prophesee_ros_publisher.h                                *
- *                                                                 *
- * Copyright: (c) 2015-2019 Prophesee                              *
- *******************************************************************/
-
-#ifndef PROPHESEE_ROS_PUBLISHER_H_
-#define PROPHESEE_ROS_PUBLISHER_H_
+#ifndef ROS_PUBLISHER_H_
+#define ROS_PUBLISHER_H_
 
 #include <sensor_msgs/CameraInfo.h>
-
+#include <sensor_msgs/Image.h>
 #include <metavision/sdk/driver/camera.h>
+#include "cd_frame_generator.h"
 
 /// \brief Main class for ROS publisher
 ///
@@ -24,6 +19,15 @@ public:
 
     /// \brief Starts the camera and starts publishing data
     void startPublishing();
+    /// \brief Checks if the frame generator class is initialized or not
+
+
+    /// @return true if initialized and false otherwise
+    bool isInitialized();
+   
+    /// \brief Publishes Frames
+    void publishframes();
+    
 
 private:
     /// \brief Opens the camera
@@ -32,12 +36,20 @@ private:
     /// \brief Publishes CD events
     void publishCDEvents();
 
+    
+    /// \brief Initializes the frame generators and the displayers
+    ///
+    /// @param sensor_width : Width of the sensor
+    /// @param sensor_height : Height of the sensor
+   
+
     /// \brief Node handler - the access point to communication with ROS
     ros::NodeHandle nh_;
 
     /// \brief Publisher for camera info
     ros::Publisher pub_info_;
 
+   
     /// \brief Publisher for CD events
     ros::Publisher pub_cd_events_;
 
@@ -66,8 +78,6 @@ private:
     /// \brief Wall timestamps
     ros::Time start_timestamp_, last_timestamp_;
 
-    /// \brief If showing CD events
-    bool publish_cd_;
 
     /// \brief Activity Filter Temporal depth (configuration)
     /// Desirable Temporal depth in micro seconds
@@ -86,6 +96,25 @@ private:
     /// \brief delta time of cd events fixed by the driver
     /// The delta time is set to a fixed number of 64 microseconds (1e-06)
     static constexpr double EVENT_DEFAULT_DELTA_T = 6.4e-05;
+
+   
+
+   /// \brief Instance of CDFrameGenerator class that generates a frame from CD events
+    CDFrameGenerator cd_frame_generator_;
+  
+    cv::Mat cd_frame;
+    /// \brief Publisher for frames
+    ros::Publisher pub_frames;
+   /// \brief  If visualizing CD events
+    bool show_cd_ = true;
+    /// \brief If the frame generators are initialized with teh sensor width and height
+    bool initialized_;
+    /// \brief If showing CD events
+    bool publish_cd_;
+    /// The time interval to display events up to the current time, in us
+    int display_acc_time_;
+   
+    
 };
 
-#endif /* PROPHESEE_ROS_PUBLISHER_H_ */
+#endif /* ROS_PUBLISHER_H_ */

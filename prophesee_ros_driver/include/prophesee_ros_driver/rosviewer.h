@@ -1,11 +1,5 @@
-/*******************************************************************
- * File : prophesee_ros_viewer.h                                   *
- *                                                                 *
- * Copyright: (c) 2015-2019 Prophesee                              *
- *******************************************************************/
-
-#ifndef PROPHESEE_ROS_VIEWER_H_
-#define PROPHESEE_ROS_VIEWER_H_
+#ifndef ROS_VIEWER_H_
+#define ROS_VIEWER_H_
 
 #include <ros/ros.h>
 #include <opencv2/opencv.hpp>
@@ -65,7 +59,11 @@ private:
     /// @param shift_y : Position (y shift) of the window
     void create_window(const std::string &window_name, const unsigned int &sensor_width,
                        const unsigned int &sensor_height, const int &shift_x = 0, const int &shift_y = 0);
-
+    ///////////////////////////////////////////////////////////////////////////////
+    //Image callback
+    void imageCallback(const sensor_msgs::ImageConstPtr& msg);
+    int process_ui_for(const int &delay_ms);
+    ///////////////////////////////////////////////////////////////////////////////
     /// \brief Node handler - the access point to communication with ROS
     ros::NodeHandle nh_;
 
@@ -74,6 +72,9 @@ private:
 
     /// \brief Subscriber for CD events topic
     ros::Subscriber sub_cd_events_;
+
+    /// \brief Subscriber for frames topic
+    ros::Subscriber sub_frames_;
 
     /// \brief Instance of CDFrameGenerator class that generates a frame from CD events
     CDFrameGenerator cd_frame_generator_;
@@ -91,7 +92,10 @@ private:
 
     /// \brief  If visualizing CD events
     bool show_cd_ = true;
+    ////////////////////////////////////////////////////
+    //Subscriber for frames
+     ros::Subscriber sub_frames;
 
 };
 
-#endif /* PROPHESEE_ROS_VIEWER_H_ */
+#endif /* ROS_VIEWER_H_ */

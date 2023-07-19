@@ -1,9 +1,3 @@
-/*******************************************************************
- * File : prophesee_ros_publisher.cpp                              *
- *                                                                 *
- * Copyright: (c) 2015-2019 Prophesee                              *
- *******************************************************************/
-
 #include <mutex>
 #include <thread>
 
@@ -11,20 +5,30 @@
 #include <std_msgs/String.h>
 #include <sensor_msgs/image_encodings.h>
 #include <cv_bridge/cv_bridge.h>
-
+#include <metavision/sdk/core/algorithms/periodic_frame_generation_algorithm.h> 
+#include <sensor_msgs/Image.h> 
+#include <image_transport/image_transport.h>
 #include <prophesee_event_msgs/Event.h>
 #include <prophesee_event_msgs/EventArray.h>
-
-#include "prophesee_ros_publisher.h"
-
+#include "rospublisher.h"
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <sensor_msgs/Image.h>
+#include <opencv2/highgui/highgui.hpp>
+#if CV_MAJOR_VERSION >= 4
+#include <opencv2/highgui/highgui_c.h>
+#endif
 
+
+//modified version 19/07
 PropheseeWrapperPublisher::PropheseeWrapperPublisher() :
     nh_("~"),
     biases_file_(""),
-    raw_file_to_read_("") {
+    raw_file_to_read_(""),
+    display_acc_time_(5000), 
+    initialized_(false)  {   
+   
     camera_name_ = "PropheseeCamera_optical_frame";
-
+    
     // Load Parameters
     nh_.getParam("camera_name", camera_name_);
     nh_.getParam("publish_cd", publish_cd_);
@@ -34,11 +38,15 @@ PropheseeWrapperPublisher::PropheseeWrapperPublisher() :
 
     const std::string topic_cam_info        = "/prophesee/" + camera_name_ + "/camera_info";
     const std::string topic_cd_event_buffer = "/prophesee/" + camera_name_ + "/cd_events_buffer";
-
     pub_info_ = nh_.advertise<sensor_msgs::CameraInfo>(topic_cam_info, 1);
 
+    
+    // Create a publisher for the image message
+    pub_frames = nh_.advertise<sensor_msgs::Image>("/topic_frames", 10);
     if (publish_cd_)
         pub_cd_events_ = nh_.advertise<prophesee_event_msgs::EventArray>(topic_cd_event_buffer, 500);
+
+
 
     while (!openCamera()) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -53,7 +61,6 @@ PropheseeWrapperPublisher::PropheseeWrapperPublisher() :
     auto &geometry                        = camera_.geometry();
     ROS_INFO("[CONF] Width:%i, Height:%i", geometry.width(), geometry.height());
     ROS_INFO("[CONF] Serial number: %s", config.serial_number.c_str());
-
     // Publish camera info message
     cam_info_msg_.width           = geometry.width();
     cam_info_msg_.height          = geometry.height();
@@ -61,8 +68,16 @@ PropheseeWrapperPublisher::PropheseeWrapperPublisher() :
 }
 
 PropheseeWrapperPublisher::~PropheseeWrapperPublisher() {
-    camera_.stop();
+    
+     if (!initialized_)
+        return;
 
+    // Stop the CD frame generator thread
+    if (show_cd_)
+        cd_frame_generator_.stop();
+    // Destroy the windows
+    cv::destroyAllWindows();
+    camera_.stop();
     nh_.shutdown();
 }
 
@@ -95,7 +110,7 @@ void PropheseeWrapperPublisher::startPublishing() {
 
     if (publish_cd_)
         publishCDEvents();
-
+        
     ros::Rate loop_rate(5);
     while (ros::ok()) {
         if (pub_info_.getNumSubscribers() > 0) {
@@ -105,6 +120,7 @@ void PropheseeWrapperPublisher::startPublishing() {
         }
         loop_rate.sleep();
     }
+    
 }
 
 void PropheseeWrapperPublisher::publishCDEvents() {
@@ -179,12 +195,68 @@ void PropheseeWrapperPublisher::publishCDEvents() {
     }
 }
 
+
+bool PropheseeWrapperPublisher::isInitialized() {
+    return initialized_;
+}
+
+
+ 
+//Publishing frames
+void PropheseeWrapperPublisher::publishframes(){
+    ROS_INFO("Publishing generated frames");
+    const auto w = camera_.geometry().width();
+    const auto h = camera_.geometry().height();
+    const std::uint32_t acc = 20000;
+    double fps = 30;
+    auto frame_gen = Metavision::PeriodicFrameGenerationAlgorithm(w, h, acc, fps);
+    
+    
+   
+
+    frame_gen.set_output_callback([&](Metavision::timestamp, cv::Mat &frame){
+       
+        sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", frame).toImageMsg(); 
+        pub_frames.publish(msg);
+        
+    });
+
+    camera_.cd().add_callback([&](const Metavision::EventCD *begin, const Metavision::EventCD *end){
+        frame_gen.process_events(begin, end);
+    });
+
+    camera_.start();
+    start_timestamp_ = ros::Time::now();
+    last_timestamp_  = start_timestamp_;
+    
+    while(camera_.is_running()){
+       //Keep running 
+        
+        
+        
+    }
+    
+    camera_.stop();
+
+    
+    
+}
+    
+
+
 int main(int argc, char **argv) {
-    ros::init(argc, argv, "prophesee_ros_publisher");
-
+    ros::init(argc, argv, "rospublisher");
     PropheseeWrapperPublisher wp;
-    wp.startPublishing();
+   
+    //wp.startPublishing(); //uncomment for publishing CD events
+   
+    wp.publishframes();
 
+    
+   
+    ROS_INFO("Published frame msg");
+    
+    
     ros::shutdown();
 
     return 0;
